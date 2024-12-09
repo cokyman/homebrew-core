@@ -1,8 +1,8 @@
 class Bazel < Formula
   desc "Google's own build tool"
   homepage "https://bazel.build/"
-  url "https://github.com/bazelbuild/bazel/releases/download/7.4.1/bazel-7.4.1-dist.zip"
-  sha256 "83386618bc489f4da36266ef2620ec64a526c686cf07041332caff7c953afaf5"
+  url "https://github.com/bazelbuild/bazel/releases/download/8.0.0/bazel-8.0.0-dist.zip"
+  sha256 "201dbe0f8c0fedd4e650f30e5b7b813a4c09c1249a0f207133b74d2c5af99fce"
   license "Apache-2.0"
 
   livecheck do
@@ -20,12 +20,17 @@ class Bazel < Formula
   end
 
   depends_on "python@3.13" => :build
+  depends_on "abseil"
   depends_on "openjdk@21"
 
   uses_from_macos "unzip"
   uses_from_macos "zip"
 
   conflicts_with "bazelisk", because: "Bazelisk replaces the bazel binary"
+
+  # upstream ref: https://github.com/bazelbuild/bazel/pull/24852
+  # patch is embedded because the upstream repository differs to the release tarball
+  patch :DATA
 
   def install
     ENV["EMBED_LABEL"] = "#{version}-homebrew"
@@ -103,3 +108,65 @@ class Bazel < Formula
     assert_equal "bazel #{version}-homebrew\n", shell_output("#{bin}/bazel-#{version} --version")
   end
 end
+
+__END__
+diff --git a/scripts/bootstrap/bootstrap.sh b/scripts/bootstrap/bootstrap.sh
+index d789d58..932153b 100755
+--- a/scripts/bootstrap/bootstrap.sh
++++ b/scripts/bootstrap/bootstrap.sh
+@@ -29,7 +29,7 @@ if [ -n "${EMBED_LABEL}" ]; then
+     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
+ fi
+ 
+-: ${JAVA_VERSION:="11"}
++: ${JAVA_VERSION:="21"}
+ 
+ # TODO: remove `--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0` once all dependencies are
+ #  mirrored. See https://github.com/bazelbuild/bazel/pull/19549 for more context.
+@@ -46,6 +46,10 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
+       --check_direct_dependencies=error \
+       --lockfile_mode=update \
+       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
++      --java_runtime_version=${JAVA_VERSION} \
++      --java_language_version=${JAVA_VERSION} \
++      --tool_java_runtime_version=${JAVA_VERSION} \
++      --tool_java_language_version=${JAVA_VERSION} \
+       ${DIST_BOOTSTRAP_ARGS:-} \
+       ${EXTRA_BAZEL_ARGS:-}"
+ 
+@@ -57,7 +61,7 @@ if [ -z "${BAZEL-}" ]; then
+     shift
+     run_bazel_jar $command \
+         ${_BAZEL_ARGS} --verbose_failures \
+-        --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
++        --javacopt="-g" "${@}"
+   }
+ else
+   function _run_bootstrapping_bazel() {
+@@ -65,7 +69,7 @@ else
+     shift
+     ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} $command \
+         ${_BAZEL_ARGS} --verbose_failures \
+-        --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
++        --javacopt="-g" "${@}"
+   }
+ fi
+ 
+diff --git a/scripts/bootstrap/compile.sh b/scripts/bootstrap/compile.sh
+index 33fd09d..88f50ee 100755
+--- a/scripts/bootstrap/compile.sh
++++ b/scripts/bootstrap/compile.sh
+@@ -264,6 +264,13 @@ EOF
+ 
+   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
+ 
++  # Set up the function_transition_allowlist target, which needs to exist for
++  # Starlark rules that use Starlark transitions.
++  mkdir -p "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist"
++  link_file "${PWD}/tools/allowlists/function_transition_allowlist/BUILD.tools" \
++      "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist/BUILD"
++  link_children "${PWD}" tools/allowlists "${BAZEL_TOOLS_REPO}"
++
+   # Create @bazel_tools//tools/cpp/runfiles
+   mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
+   link_file "${PWD}/tools/cpp/runfiles/runfiles_src.h" \
