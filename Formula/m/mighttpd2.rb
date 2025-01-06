@@ -20,8 +20,13 @@ class Mighttpd2 < Formula
   uses_from_macos "zlib"
 
   def install
+    # Workaround to build with GHC 9.12, remove after https://github.com/haskell/aeson/pull/1126
+    args = ["--allow-newer=aeson:ghc-prim,aeson:template-haskell"]
+    # Workaround to build with GHC 9.12, remove after https://github.com/well-typed/cborg/pull/339
+    args << "--allow-newer=serialise:base,serialise:ghc-prim,cborg:base,cborg:ghc-prim"
+
     system "cabal", "v2-update"
-    system "cabal", "v2-install", "-ftls", *std_cabal_v2_args
+    system "cabal", "v2-install", "-ftls", *args, *std_cabal_v2_args
   end
 
   test do
