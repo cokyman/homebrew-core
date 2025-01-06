@@ -29,29 +29,24 @@ class Bnfc < Formula
   depends_on "openjdk" => :test
 
   def install
-    cd "source" do
-      system "cabal", "v2-update"
-      system "cabal", "v2-install", *std_cabal_v2_args
-      doc.install "CHANGELOG.md"
-      doc.install "src/BNFC.cf" => "BNFC.cf"
-    end
-    cd "docs" do
-      system "make", "text", "man", "SPHINXBUILD=#{Formula["sphinx-doc"].bin/"sphinx-build"}"
-      cd "_build" do
-        doc.install "text" => "manual"
-        man1.install "man/bnfc.1" => "bnfc.1"
-      end
-    end
-    doc.install %w[README.md examples]
+    # Workaround to build with GHC 9.12, remove after https://github.com/haskell/aeson/pull/1126
+    args = ["--allow-newer=aeson:ghc-prim,aeson:template-haskell"]
+
+    system "cabal", "v2-update"
+    system "cabal", "v2-install", "./source", *args, *std_cabal_v2_args
+    system "make", "-C", "docs", "text", "man", "SPHINXBUILD=#{Formula["sphinx-doc"].bin}/sphinx-build"
+
+    doc.install "examples", "source/src/BNFC.cf"
+    doc.install "docs/_build/text" => "manual"
+    man1.install "docs/_build/man/bnfc.1"
+    prefix.install_metafiles "source"
   end
 
   test do
-    ENV.prepend_create_path "PATH", testpath/"tools-bin"
+    ENV.prepend_create_path "PATH", testpath/"bin"
+    cabal_args = std_cabal_v2_args.reject { |s| s["installdir"] } + ["--installdir=#{testpath}/bin"]
     system "cabal", "v2-update"
-    system "cabal", "v2-install",
-           "--jobs=#{ENV.make_jobs}", "--max-backjumps=100000",
-           "--install-method=copy", "--installdir=#{testpath/"tools-bin"}",
-           "alex", "happy"
+    system "cabal", "v2-install", "alex", "happy", *cabal_args
 
     (testpath/"calc.cf").write <<~EOS
       EAdd. Exp  ::= Exp  "+" Exp1 ;
@@ -79,7 +74,7 @@ class Bnfc < Formula
 
     EOS
     check_out_hs = <<~EOS
-      #{testpath/"test.calc"}
+      #{testpath}/test.calc
 
       Parse Successful!
 
@@ -109,11 +104,11 @@ class Bnfc < Formula
       14 * (3 + 2 / 5 - 8)
     EOS
 
-    mktemp "c-test" do
+    mkdir "c-test" do
       system bin/"bnfc", "-m", "-o.", "--c", testpath/"calc.cf"
       system "make", "CC=#{ENV.cc}", "CCFLAGS=#{ENV.cflags}",
-             "FLEX=#{Formula["flex"].bin/"flex"}",
-             "BISON=#{Formula["bison"].bin/"bison"}"
+             "FLEX=#{Formula["flex"].bin}/flex",
+             "BISON=#{Formula["bison"].bin}/bison"
       test_out = shell_output("./Testcalc #{testpath}/test.calc")
       assert_equal check_out_c, test_out
     end
@@ -127,7 +122,7 @@ class Bnfc < Formula
       assert_equal check_out_c, test_out
     end
 
-    mktemp "agda-test" do
+    mkdir "agda-test" do
       system bin/"bnfc", "-m", "-o.", "--haskell", "--text-token",
              "--generic", "--functor", "--agda", "-d", testpath/"calc.cf"
       system "make"
@@ -138,16 +133,14 @@ class Bnfc < Formula
     end
 
     ENV.deparallelize do # only the Java test needs this
-      mktemp "java-test" do
+      mkdir "java-test" do
         jdk_dir = Formula["openjdk"].bin
         antlr_bin = Formula["antlr"].bin/"antlr"
-        antlr_jar = Dir[Formula["antlr"].prefix/"antlr-*-complete.jar"][0]
+        antlr_jar = Dir[Formula["antlr"].prefix/"antlr-*-complete.jar"].first
         ENV["CLASSPATH"] = ".:#{antlr_jar}"
         system bin/"bnfc", "-m", "-o.", "--java", "--antlr4", testpath/"calc.cf"
-        system "make", "JAVAC=#{jdk_dir/"javac"}", "JAVA=#{jdk_dir/"java"}",
-               "LEXER=#{antlr_bin}", "PARSER=#{antlr_bin}"
-        test_out = shell_output("#{jdk_dir}/java calc.Test #{testpath}/test.calc")
-        assert_equal check_out_java, test_out
+        system "make", "JAVAC=#{jdk_dir}/javac", "JAVA=#{jdk_dir}/java", "LEXER=#{antlr_bin}", "PARSER=#{antlr_bin}"
+        assert_equal check_out_java, shell_output("#{jdk_dir}/java calc.Test #{testpath}/test.calc")
       end
     end
   end
