@@ -23,8 +23,14 @@ class Futhark < Formula
   uses_from_macos "zlib"
 
   def install
+    # Workaround to build with GHC 9.12:
+    # * Minimum index state set to get `text-short` 0.1.6 revision 3
+    # * `aeson` workaround can be removed after https://github.com/haskell/aeson/pull/1126
+    inreplace "cabal.project", "index-state: 2024-11-04T14:44:59Z", "index-state: 2024-12-20T18:17:31Z"
+    args = ["--allow-newer=aeson:ghc-prim,aeson:template-haskell"]
+
     system "cabal", "v2-update"
-    system "cabal", "v2-install", *std_cabal_v2_args
+    system "cabal", "v2-install", *args, *std_cabal_v2_args
 
     system "make", "-C", "docs", "man"
     man1.install Dir["docs/_build/man/*.1"]
