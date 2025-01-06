@@ -24,6 +24,12 @@ class Agda < Formula
     resource "categories" do
       url "https://github.com/agda/agda-categories/archive/refs/tags/v0.2.0.tar.gz"
       sha256 "a4bf97bf0966ba81553a2dad32f6c9a38cd74b4c86f23f23f701b424549f9015"
+
+      # Backport support for stdlib 2.1
+      patch do
+        url "https://github.com/agda/agda-categories/commit/ac0d9d27a402305f6774a6343f7a21a229822168.patch?full_index=1"
+        sha256 "50dc97c97898c825dd4c85fffc8452dc3e61a7871aa907d65b1711e5642c05fc"
+      end
     end
 
     resource "agda2hs" do
@@ -78,7 +84,21 @@ class Agda < Formula
   uses_from_macos "zlib"
 
   def install
+    # Workarounds for GHC 9.12
+    ghc912_args = [
+      # FIXME: need to relax upper bounds to < 4.22
+      "--allow-newer=agda2hs:filepath",
+      "--allow-newer=agda2hs:base",
+      "--allow-newer=agda-stdlib-utils:base",
+      "--allow-newer=Agda:base",
+      # https://github.com/agda/agda/commit/e11ae9875470aab7b68b98d9d9574e736dbcaddd
+      "--allow-newer=Agda:hashable",
+      # https://github.com/haskell/aeson/pull/1126
+      "--allow-newer=aeson:ghc-prim,aeson:template-haskell",
+    ]
+
     cabal_args = std_cabal_v2_args.reject { |s| s["installdir"] }
+    cabal_args += ghc912_args
 
     system "cabal", "v2-update"
     # expose certain packages for building and testing
@@ -89,7 +109,7 @@ class Agda < Formula
 
     # install main Agda library and binaries
     system "cabal", "--store-dir=#{libexec}", "v2-install",
-    "-foptimise-heavily", *std_cabal_v2_args
+    "-foptimise-heavily", *std_cabal_v2_args, *ghc912_args
 
     # install agda2hs helper binary and library,
     # relying on the Agda library just installed
@@ -109,7 +129,7 @@ class Agda < Formula
       # Issue ref: https://github.com/agda/agda2hs/issues/347
       inreplace "agda2hs.cabal", /( base .*&&) < 4\.20,/, "\\1 < 4.21,", build.stable?
 
-      system "cabal", "--store-dir=#{libexec}", "v2-install", *std_cabal_v2_args
+      system "cabal", "--store-dir=#{libexec}", "v2-install", *std_cabal_v2_args, *ghc912_args
     end
 
     # generate the standard library's documentation and vim highlighting files
