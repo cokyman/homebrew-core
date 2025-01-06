@@ -19,8 +19,11 @@ class Texmath < Formula
   depends_on "ghc" => :build
 
   def install
+    # Workaround to build with GHC 9.12, remove after https://github.com/haskell/aeson/pull/1126
+    args = ["--allow-newer=aeson:ghc-prim,aeson:template-haskell"]
+
     system "cabal", "v2-update"
-    system "cabal", "v2-install", *std_cabal_v2_args, "-fexecutable"
+    system "cabal", "v2-install", *args, *std_cabal_v2_args, "-fexecutable"
   end
 
   test do
