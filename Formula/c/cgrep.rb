@@ -42,6 +42,8 @@ class Cgrep < Formula
     end
     # Help resolver pick package versions compatible with newer GHC
     constraints = ["--constraint=async>=2"]
+    # Workaround to build with GHC 9.12, remove after https://github.com/haskell/aeson/pull/1126
+    constraints << "--allow-newer=aeson:ghc-prim,aeson:template-haskell"
 
     system "cabal", "v2-update"
     system "cabal", "v2-install", *constraints, *std_cabal_v2_args
