@@ -23,8 +23,11 @@ class Hpack < Formula
   uses_from_macos "zlib"
 
   def install
+    # Workaround to build with GHC 9.12, remove after https://github.com/haskell/aeson/pull/1126
+    args = ["--allow-newer=aeson:ghc-prim,aeson:template-haskell"]
+
     system "cabal", "v2-update"
-    system "cabal", "v2-install", *std_cabal_v2_args
+    system "cabal", "v2-install", *args, *std_cabal_v2_args
   end
 
   # Testing hpack is complicated by the fact that it is not guaranteed
