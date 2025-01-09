@@ -1,8 +1,8 @@
 class Darcs < Formula
   desc "Distributed version control system that tracks changes, via Haskell"
   homepage "https://darcs.net/"
-  url "https://hackage.haskell.org/package/darcs-2.18.4/darcs-2.18.4.tar.gz"
-  sha256 "f4bc276f2f785c8f8c9bcf97288f124a4e907540140213fe47b1049e2d240338"
+  url "https://hackage.haskell.org/package/darcs-2.18.5/darcs-2.18.5.tar.gz"
+  sha256 "e310692989e313191824f532a26c5eae712217444214266503d5eb5867f951ab"
   license "GPL-2.0-or-later"
 
   bottle do
@@ -21,17 +21,6 @@ class Darcs < Formula
   uses_from_macos "ncurses"
   uses_from_macos "zlib"
 
-  # Backport fixes for newer GHC[^1] and Cabal[^2]. Darcs uses a different
-  # patch file format and cannot be applied with the external patch DSL.
-  #
-  # * darcs diff --hash 32646b190e019de21a103e950c4eccdd66f7eadc
-  # * darcs diff --hash 50d9b0b402a896c83aa7929a50a0e0449838600f
-  # * darcs diff --hash 8da98f5de14034aa79a2860212fa34e99585e188
-  #
-  # [^1]: https://bugs.darcs.net/patch2422
-  # [^2]: https://bugs.darcs.net/patch2426
-  patch :DATA
-
   def install
     system "cabal", "v2-update"
     system "cabal", "v2-install", *std_cabal_v2_args
@@ -48,77 +37,3 @@ class Darcs < Formula
     assert_equal "hello homebrew!", (testpath/"my_repo_clone/foo").read
   end
 end
-
-__END__
-diff -rN -u old-darcs.net/darcs.cabal new-darcs.net/darcs.cabal
---- old-darcs.net/darcs.cabal	2025-01-05 10:09:26
-+++ new-darcs.net/darcs.cabal	2025-01-05 10:09:26
-@@ -123,7 +123,7 @@
- -- ----------------------------------------------------------------------
- 
- custom-setup
--    setup-depends: base      >= 4.10 && < 4.20,
-+    setup-depends: base      >= 4.10 && < 4.21,
-                    Cabal     >= 2.4 && < 3.11,
-                    process   >= 1.2.3.0 && < 1.7,
-                    filepath  >= 1.4.1 && < 1.5.0.0,
-@@ -412,7 +412,7 @@
-     else
-       build-depends:  unix >= 2.7.1.0 && < 2.9
- 
--    build-depends:    base              >= 4.10 && < 4.20,
-+    build-depends:    base              >= 4.10 && < 4.21,
-                       safe              >= 0.3.20 && < 0.4,
-                       stm               >= 2.1 && < 2.6,
-                       binary            >= 0.5 && < 0.11,
-diff -rN -u old-darcs.net/Setup.hs new-darcs.net/Setup.hs
---- old-darcs.net/Setup.hs	2025-01-05 10:24:34
-+++ new-darcs.net/Setup.hs	2025-01-05 10:24:34
-@@ -8,7 +8,7 @@
- import Distribution.Package ( packageVersion )
- import Distribution.Version( Version )
- import Distribution.Simple.LocalBuildInfo
--         ( LocalBuildInfo(..), absoluteInstallDirs )
-+         ( LocalBuildInfo(..), absoluteInstallDirs, buildDir )
- import Distribution.Simple.InstallDirs (mandir, CopyDest (NoCopyDest))
- import Distribution.Simple.Setup
-     (buildVerbosity, copyDest, copyVerbosity, fromFlag,
-diff -rN -u old-darcs.net/darcs.cabal new-darcs.net/darcs.cabal
---- old-darcs.net/darcs.cabal	2025-01-05 10:24:34
-+++ new-darcs.net/darcs.cabal	2025-01-05 10:24:34
-@@ -124,7 +124,7 @@
- 
- custom-setup
-     setup-depends: base      >= 4.10 && < 4.21,
--                   Cabal     >= 2.4 && < 3.11,
-+                   Cabal     >= 2.4 && < 3.13,
-                    process   >= 1.2.3.0 && < 1.7,
-                    filepath  >= 1.4.1 && < 1.5.0.0,
-                    directory >= 1.2.7 && < 1.4
-diff -rN -u old-darcs.net/darcs.cabal new-darcs.net/darcs.cabal
---- old-darcs.net/darcs.cabal	2025-01-05 10:13:57
-+++ new-darcs.net/darcs.cabal	2025-01-05 10:13:57
-@@ -464,9 +464,9 @@
-     if impl(ghc >= 9.8)
-       cpp-options:    -DHAVE_CRYPTON_CONNECTION
-       build-depends:  crypton-connection >= 0.4 && < 0.5,
--                      data-default-class >= 0.1.2.0 && < 0.1.3,
-+                      data-default      >= 0.7.1.3 && < 0.9,
-                       http-client-tls   >= 0.3.5 && < 0.4,
--                      tls               >= 2.0.6 && < 2.1
-+                      tls               >= 2.0.6 && < 2.2
-     else
-       -- cannot use crypton-connection >= 0.4, so
-       -- constraining indirect dependency to work around problems
-diff -rN -u old-darcs.net/src/Darcs/Util/HTTP.hs new-darcs.net/src/Darcs/Util/HTTP.hs
---- old-darcs.net/src/Darcs/Util/HTTP.hs	2025-01-05 10:13:57
-+++ new-darcs.net/src/Darcs/Util/HTTP.hs	2025-01-05 10:13:57
-@@ -46,7 +46,7 @@
-     )
- 
- #ifdef HAVE_CRYPTON_CONNECTION
--import Data.Default.Class ( def )
-+import Data.Default ( def )
- import qualified Network.Connection as NC
- import Network.HTTP.Client.TLS
-     ( mkManagerSettings
