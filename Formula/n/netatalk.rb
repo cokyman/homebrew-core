@@ -47,11 +47,6 @@ class Netatalk < Formula
     depends_on "libtirpc" # on macOS we use native RPC instead
   end
 
-  patch do
-    url "https://github.com/Netatalk/netatalk/commit/206fb7771862b9b98452c934dac884aaa397c8ca.patch?full_index=1"
-    sha256 "fd448734556daf0344be4fa0bb09e4704c4123078ad804069d288aa0e3e104d6"
-  end
-
   def install
     inreplace "distrib/initscripts/macos.netatalk.in", "@sbindir@", opt_sbin
     inreplace "distrib/initscripts/macos.netatalk.plist.in", "@bindir@", opt_bin
@@ -67,6 +62,7 @@ class Netatalk < Formula
       "-Dwith-init-dir=#{prefix}",
       "-Dwith-init-hooks=false",
       "-Dwith-install-hooks=false",
+      "-Dwith-lockfile-path=#{var}/run",
       "-Dwith-statedir-path=#{var}",
       "-Dwith-pam-config-path=#{etc}/pam.d",
       "-Dwith-rpath=false",
@@ -81,6 +77,23 @@ class Netatalk < Formula
   service do
     name macos: "io.netatalk.daemon", linux: "netatalk"
     require_root true
+  end
+
+  def caveats
+    on_macos do
+      on_arm do
+        <<~EOS
+          Authenticating as a system user requires manually installing the
+          PAM configuration file to a predetermined location by running:
+
+            sudo install -d -o $USER -g admin /usr/local/etc
+            mkdir -p /usr/local/etc/pam.d
+            cp $(brew --prefix)/etc/pam.d/netatalk /usr/local/etc/pam.d
+
+          See `man pam.conf` for more information.
+        EOS
+      end
+    end
   end
 
   test do
