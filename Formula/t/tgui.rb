@@ -21,7 +21,7 @@ class Tgui < Formula
   end
 
   depends_on "cmake" => :build
-  depends_on "sfml@2" # sfml 3.0 build issue report, https://github.com/texus/TGUI/issues/249
+  depends_on "sfml"
 
   def install
     args = %W[
@@ -45,15 +45,19 @@ class Tgui < Formula
       #include <TGUI/Backend/SFML-Graphics.hpp>
       int main()
       {
-        sf::Text text;
-        text.setString("Hello World");
+        sf::RenderWindow window{sf::VideoMode{{800, 600}}, "TGUI example (SFML-Graphics)"};
+        tgui::Gui gui{window};
+        if (!window.isOpen())
+          return 1;
+        const auto event = window.pollEvent();
+        sf::sleep(sf::seconds(2));
+        window.close();
         return 0;
       }
     CPP
 
-    ENV.append_path "LD_LIBRARY_PATH", Formula["sfml@2"].opt_lib if OS.linux?
-    system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-I#{Formula["sfml@2"].opt_include}",
-      "-L#{lib}", "-L#{Formula["sfml@2"].opt_lib}",
+    system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-I#{Formula["sfml"].opt_include}",
+      "-L#{lib}", "-L#{Formula["sfml"].opt_lib}",
       "-ltgui", "-lsfml-graphics", "-lsfml-system", "-lsfml-window",
       "-o", "test"
     system "./test"
